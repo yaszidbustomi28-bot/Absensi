@@ -25,6 +25,7 @@ button{width:100%;padding:13px;border:0;border-radius:10px;background:var(--ac);
 button.o{background:transparent;color:var(--tx);border:1px solid var(--bd)}
 .r{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--bd);font-size:14px}
 .r small{color:var(--mu);display:block}.r a{color:var(--dg);font-size:13px;cursor:pointer}
+button.o{margin-top:14px}.fb{display:block;padding:13px;border:1px solid var(--bd);border-radius:10px;text-align:center;font-weight:600;margin-top:14px;cursor:pointer}
 #m{font-size:13px;margin-top:10px;min-height:18px;color:var(--ac)}
 </style></head><body><main>
 <h1>Absensi Karyawan</h1><p class="s">Isi data, ambil foto, lalu unduh PDF bulanan.</p>
@@ -33,7 +34,7 @@ button.o{background:transparent;color:var(--tx);border:1px solid var(--bd)}
 <label>Nama</label><input id="n" placeholder="Nama lengkap" autocomplete="name">
 <label>Cabang</label><input id="b" placeholder="Nama cabang">
 <div class="g"><div><label>Tanggal</label><input id="d" type="date"></div>
-<div><label>Shift</label><select id="sh"><option>Opening</option><option>Middle</option><option>Closing</option></select></div></div>
+<div><label>Shift</label><select id="sh"><option>Opening</option><option>Middle</option><option>Closing</option><option>Full Shift</option></select></div></div>
 <div class="g" style="margin-top:12px">
 <label class="ph" id="pi"><span><b>Foto Masuk</b><br>Ketuk untuk pilih foto</span><img hidden alt=""><input type="file" accept="image/*" data-k="in"></label>
 <label class="ph" id="po"><span><b>Foto Pulang</b><br>Ketuk untuk pilih foto</span><img hidden alt=""><input type="file" accept="image/*" data-k="out"></label></div>
@@ -43,7 +44,9 @@ button.o{background:transparent;color:var(--tx);border:1px solid var(--bd)}
 <div class="g"><div><label>Bulan</label><input id="mo" type="month"></div>
 <div><label>Nama</label><select id="pn"></select></div></div>
 <div id="ls" style="margin-top:8px"></div>
-<button id="pdf" class="o">Unduh PDF (tgl 1–akhir bulan)</button></div>
+<button id="pdf" class="o">Unduh PDF (tgl 1–akhir bulan)</button>
+<div class="g"><button id="ex" class="o">Simpan file data</button><label class="fb">Muat file data<input id="im" type="file" accept=".json,application/json" hidden></label></div>
+<p class="s" style="margin:10px 0 0;font-size:13px">Simpan file data setiap hari. Nanti cukup muat file terakhir, lalu unduh PDF.</p></div>
 </main>
 <script>
 const $=id=>document.getElementById(id);
@@ -80,7 +83,7 @@ $('sv').onclick=async()=>{
   localStorage.setItem('abs_n',n);localStorage.setItem('abs_b',b);localStorage.setItem('abs_s',r.shift)}catch(e){}
  P.in=P.out=null;
  ['pi','po'].forEach(id=>{const L=$(id);L.querySelector('img').hidden=true;L.querySelector('span').hidden=false;L.querySelector('input').value=''});
- msg('Tersimpan ✓ ('+d+')');await load()};
+ msg('Tersimpan ✓ ('+d+'). Tekan "Simpan file data" di bawah untuk menyimpan file.');await load()};
 
 function draw(){
  const mo=$('mo').value,mr=recs.filter(r=>r.date.startsWith(mo));
@@ -125,6 +128,18 @@ $('pdf').onclick=async()=>{
   if(dl){await dl.save({filename:fn,data:blob})}
   else{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;a.click()}
  }catch(e){if(!e||e.code!=='declined')alert('PDF gagal disimpan: '+(e&&e.message||e))}};
+
+async function saveBlob(b,fn){try{const dl=window.claude?await window.claude.use('downloads'):null;
+ if(dl){await dl.save({filename:fn,data:b})}else{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=fn;a.click()}
+ }catch(e){if(!e||e.code!=='declined')alert('Gagal menyimpan file: '+(e&&e.message||e))}}
+$('ex').onclick=async()=>{if(!recs.length)return alert('Belum ada data untuk disimpan.');
+ await saveBlob(new Blob([JSON.stringify({app:'absensi',v:1,records:recs})],{type:'application/json'}),'absensi-data_'+iso(new Date())+'.json')};
+$('im').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+ try{if(!DB)throw 0;const j=JSON.parse(await f.text()),arr=Array.isArray(j)?j:j.records;if(!Array.isArray(arr))throw 0;
+  let n=0;for(const x of arr){if(!x||!x.id||!x.date)continue;const o=recs.find(y=>y.id===x.id);
+   const m=o?{...x,...o,inP:o.inP||x.inP||null,outP:o.outP||x.outP||null}:x;await tx('readwrite',st=>st.put(m));n++}
+  e.target.value='';await load();msg('Berhasil memuat '+n+' data dari file.')}
+ catch(err){e.target.value='';msg('File tidak dikenali. Pilih file data absensi (.json).')}};
 
 (async()=>{try{DB=await open()}catch(e){msg('Penyimpanan tidak tersedia.')}load()})();
 </script></body></html>
